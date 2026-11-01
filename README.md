@@ -1,6 +1,6 @@
 # hypergird-deploy
 
-Produkčné nasadenie aplikácie [hypergrid](https://github.com/itjama/hypergrid) na `https://hypergrid.app.iteo.com`.
+Produkčné nasadenie aplikácie [hypergrid](https://github.com/itjama/hypergrid) na `https://hypergrid.app.iteo.sk`.
 Žiadny kód aplikácie — iba konfigurácia servera. Image sa sťahujú zo súkromného GHCR.
 HTTPS rieši spoločný Traefik (repo `traefik-deploy`), musí bežať a musí existovať sieť `proxy`.
 
@@ -26,7 +26,7 @@ Image (vznikajú workflowom `.github/workflows/release.yml` v repe `hypergrid` p
 
 ## Prvá inštalácia na server
 
-1. **Traefik** beží podľa `traefik-deploy` (vrátane `docker network create proxy` a DNS `*.app.iteo.com`).
+1. **Traefik** beží podľa `traefik-deploy` (vrátane `docker network create proxy` a DNS `*.app.iteo.sk`).
 2. **Repo** do `/opt/hypergrid` (deploy key bez write access, rovnako ako pri `household-deploy`):
    ```bash
    ssh-keygen -t ed25519 -f ~/.ssh/hypergrid_deploy -N "" -C "hypergrid-server"
@@ -44,7 +44,7 @@ Image (vznikajú workflowom `.github/workflows/release.yml` v repe `hypergrid` p
    cd /opt/hypergrid && cp .env.example .env && nano .env
    ```
    `DB_PASSWORD`: `openssl rand -hex 32`, `GUEST_SIGNING_KEY`: `openssl rand -base64 48`.
-5. **Spustenie:** `./deploy.sh 0.1.0` → prvý štart vytvorí tabuľky migráciami. Otvoriť `https://hypergrid.app.iteo.com`.
+5. **Spustenie:** `./deploy.sh 0.1.0` → prvý štart vytvorí tabuľky migráciami. Otvoriť `https://hypergrid.app.iteo.sk`.
 
 ## Nová verzia
 
