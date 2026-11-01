@@ -1,0 +1,70 @@
+# Produkčné nasadenie Hypergridu za Traefikom (repo traefik-deploy).
+# Kód je v repe hypergrid; sem sa iba sťahujú hotové image z GHCR podľa APP_VERSION v .env.
+# Žiadna služba nemá ports: — zvonku sa ide iba cez Traefik na službu web.
+name: hypergrid-deploy
+
+services:
+  # nginx: statický klient + proxy /api, /hubs (SignalR), /health → server:8080 (web/nginx.conf v repe hypergrid)
+  web:
+    image: ghcr.io/itjama/hypergrid-web:${APP_VERSION:?nastav APP_VERSION v .env}
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.hypergrid.rule=Host(`${DOMAIN:?nastav DOMAIN v .env}`)
+      - traefik.http.routers.hypergrid.entrypoints=websecure
+      - traefik.http.services.hypergrid.loadbalancer.server.port=80
+    networks:
+      - proxy
+      - internal
+
+  server:
+    image: ghcr.io/itjama/hypergrid-server:${APP_VERSION}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ConnectionStrings__Hypergrid: "Host=db;Port=5432;Database=hypergrid;Username=hypergrid;Password=${DB_PASSWORD:?nastav DB_PASSWORD v .env};Gss Encryption Mode=Disable"
+      Database__MigrateOnStartup: "true"
+      # povinný, aspoň 32 bajtov (server inak nenaštartuje)
+      Guest__SigningKey: "${GUEST_SIGNING_KEY:?nastav GUEST_SIGNING_KEY v .env}"
+    # Image nemá curl ani wget → HTTP požiadavka cez bash /dev/tcp; /health overuje aj DB
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - internal
+
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hypergrid
+      POSTGRES_USER: hypergrid
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      # PostgreSQL 18+: mount na /var/lib/postgresql (dáta v podpriečinku 18/docker)
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hypergrid -d hypergrid"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+volumes:
+  pgdata:
+
+networks:
+  proxy:
+    external: true
+  internal:
